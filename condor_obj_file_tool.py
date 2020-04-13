@@ -58,32 +58,34 @@ if __name__ == "__main__":
         help="Landscape name", 
         action="store")
     parser.add_argument(
-        "-t", "--trn", 
-        help="Landscape configuration file (JSON)", 
-        action="store")
-    parser.add_argument(
-        "-o", "--output", 
-        help="Landscape configuration file (JSON)", 
+        "-j", "--json", 
+        help="JSON object data with absolute coordinates", 
         action="store")
     args = parser.parse_args()
+
+    if not os.path.exists(args.condor_dir):
+        print("Condor directory not found at", args.condor_dir,
+              ", please specify with --condor-dir")
 
     landscape_dir = os.path.join(
         args.condor_dir, "Landscapes/", args.name + "/")
     trn_file = os.path.join(landscape_dir, args.name + ".trn")
     obj_file = os.path.join(landscape_dir, args.name + ".obj")
     obj_out_file = os.path.join(landscape_dir, args.name + ".obj")
-    print("Landscape directory", landscape_dir)
+
+    print("Landscape directory", landscape_dir,
+          ". Make sure it is writable by your user, otherwise data may end up in the VirtualStore.")
         
     lon, lat = read_trn(trn_file)
     if args.command == "decompile":
         objects = read_obj(obj_file, lon, lat)
         print("Read", len(objects), "objects")
-        if args.output:
-            print("writing to", args.output)
-            with open(args.output, "w") as f:
+        if args.json:
+            print("writing to", args.json)
+            with open(args.json, "w") as f:
                 f.write(json.dumps(objects))
     elif args.command == "compile":
        with open(args.output, "r") as f:
            objects = json.loads(f.read())
-           print("Read", len(objects), "objects from", args.output)
+           print("Read", len(objects), "objects from", args.json)
            write_obj(obj_out_file, lon, lat, objects)
