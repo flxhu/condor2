@@ -11,3 +11,4 @@ Typical workflow
 
 `condor_obj_file_tool.py --compile --name <landscapeto> --json objects.json`
  
+Based on the work of Bre901, see http://www.condorsoaring.com/forums/viewtopic.php?f=38&t=18521&p=165412
