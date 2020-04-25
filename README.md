@@ -7,8 +7,8 @@ condor_obj_file_tool.py converts Condor's .obj files, which contains the coordin
 
 Typical workflow
 
-`condor_obj_file_tool.py --decompile --name <landscapefrom> --json objects.json`
+`condor_obj_file_tool.py export --name <landscapefrom> --json objects.json`
 
-`condor_obj_file_tool.py --compile --name <landscapeto> --json objects.json`
+`condor_obj_file_tool.py import --name <landscapeto> --json objects.json`
  
 Based on the work of Bre901, see http://www.condorsoaring.com/forums/viewtopic.php?f=38&t=18521&p=165412
