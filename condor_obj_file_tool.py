@@ -48,7 +48,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "command", 
-        choices=["decompile", "compile", "view"])
+        choices=["export", "import", "view"])
     parser.add_argument(
         "--condor-dir", 
         help="Condor 2 base directory", 
@@ -77,14 +77,14 @@ if __name__ == "__main__":
           ". Make sure it is writable by your user, otherwise data may end up in the VirtualStore.")
         
     lon, lat = read_trn(trn_file)
-    if args.command == "decompile":
+    if args.command == "export":
         objects = read_obj(obj_file, lon, lat)
         print("Read", len(objects), "objects")
         if args.json:
             print("writing to", args.json)
             with open(args.json, "w") as f:
-                f.write(json.dumps(objects))
-    elif args.command == "compile":
+                f.write(json.dumps(objects, sort_keys=True, indent=2))
+    elif args.command == "import":
        with open(args.output, "r") as f:
            objects = json.loads(f.read())
            print("Read", len(objects), "objects from", args.json)
