@@ -2,9 +2,8 @@
     "name" : "EastGermany",
     "area_outer_wgs84" : [11.6, 54.8, 15.25, 50.1],
     "area_utm" : [282600, 6065000, 513000, 5558120],
-    "terrain_raw" : "EastGermany/source/eastgermany_bing_z17.tif",
+    "terrain_raw" : "EastGermany/source/eastgermany_z17.tif",
     "terrain_kbs" : "EPSG:3785",
-    "terrain_overlays_dir" : "EastGermany/source/overlays/",
     "dem_directory" : "EastGermany/source/dem/",
     "osm_directory" : "EastGermany/osm/",
     "osm_regions" : [
