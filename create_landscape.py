@@ -19,16 +19,10 @@ GDAL_BUILD_VRT = "'" + os.path.join(GDAL_BIN, "gdalbuildvrt") + "'"
 TERRAIN_TILE_SIZE_PIXELS = 8192
 FOREST_TILE_SIZE_PIXELS = 2048
 TILE_SIZE_UTM = 23040.0
-GDAL_RESOLUTION = 30
 
-TREE_WIDTH = 170000
-TREE_HEIGHT = 90000
-TERRAIN_EDITOR_TILE_SIZE=8192
-DDS_TILE_SIZE=4096
 THERMAL_MAP_TILE_SIZE = 256
 
-TERRAIN_SAMPLING = "near"
-# TERRAIN_SAMPLING = "cubicspline"
+TERRAIN_SAMPLING = "near"  # we want it crisp
 
 def load_config(config_file_name):
     with open(config_file_name, "r") as myfile:
@@ -196,7 +190,7 @@ def gdal_reproject(destination, source, source_kbs, resampling):
 
 # Create projected and clipped geotiff
 def terrain_reproject_and_clip(
-      what, area_utm, geotiff_input, terrain_overlays_dir, output_prefix, 
+      what, area_utm, geotiff_input, output_prefix, 
       tmp_dir, terrain_source_kbs, terrain_sampling, tile_size_pixels):
     tmp_prefix = os.path.join(tmp_dir, what)
 
@@ -211,11 +205,10 @@ def terrain_reproject_and_clip(
 
 # Sasplanet: cache area. Stitch 4326 (WGS-84)
 # LGB Geobroker: 25833 (UTMxy)
-def render_terrain(config):
+def render_textures(config):
     area_utm = tuple(config['area_utm'])
     map_name = config['name']
     terrain_geotiff_input = config['terrain_raw']
-    terrain_overlays_dir = config['terrain_overlays_dir']
 
     output_directory = os.path.join(CONDOR_DIR, f"{map_name}")
     tmp_directory = os.path.join(f"{map_name}/", "tmp/")
@@ -229,7 +222,7 @@ def render_terrain(config):
           "into tiles in", editor_terrain_directory)
 
     terrain_reproject_and_clip(
-        "terrain", area_utm, terrain_geotiff_input, terrain_overlays_dir, 
+        "terrain", area_utm, terrain_geotiff_input,
         output_prefix, tmp_directory,
         config['terrain_kbs'], TERRAIN_SAMPLING, TERRAIN_TILE_SIZE_PIXELS)
     cut_to_tiles(
@@ -335,7 +328,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "command", 
-        choices=["check", "terrain", "osm", "heightmap"])
+        choices=["check", "textures", "osm", "heightmap"])
     parser.add_argument(
         "-c", "--config", 
         help="Landscape configuration file (JSON)", 
@@ -351,8 +344,8 @@ if __name__ == "__main__":
     print("Initializing directories")
     initialize_directories(config)
 
-    if args.command == 'terrain':
-        render_terrain(config)
+    if args.command == 'textures':
+        render_textures(config)
     elif args.command == 'osm':
         render_osm(config)
     elif args.command == 'heightmap':
