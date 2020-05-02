@@ -24,11 +24,11 @@ First adapt `create_landscape.py` to your installation (QGIS directory etc).
 The rough workflow with the tool (please refer to the Landscape Guide for details):
 1. decide on an approximate area of coverage (in WGS-84 coordinates, should a bit larger than the final landscape) and exact UTM coordinates (UTMTools.exe) and put them into the `config.json`. I've included the `config.json` of the EastGermany map as an example.
 2. Terrain 
-  - download terrain data from USGS EarthExplorer
-  - convert terrain data with create_landscape.py -c config.json heightmap`
+  - download DEM data from USGS EarthExplorer
+  - convert terrain data with `create_landscape.py -c config.json heightmap`
   - create the initial landscape from the data
 3. Textures
-  - download textures and stitch them to a large GeoTIFF. In some countries you can get DOPs (resolution 1m or better) from the local administration, or you can rip data from mapping services with sasplanet. Add to `config.json`.
+  - download textures and stitch them to a large GeoTIFF. In some countries you can get DOPs (resolution 1m or better) from the local administration, or you can rip data from mapping services with sasplanet (z17, EPSG 3785). Add path and kbs to `config.json`.
   - generate textures tiles with `create_landscape.py -c config.json textures`
 4. Forests, Water, Thermal
   - download OpenStreetMap data for your coverage (.osm files), for example from https://download.geofabrik.de/, add to `config.json`.
