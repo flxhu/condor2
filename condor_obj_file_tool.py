@@ -6,10 +6,20 @@ import struct
 import json
 
 def read_trn(trn_file):
+    print("Parsing", trn_file)
     with open(trn_file, "rb") as f:
-        f.seek(20)
-        lon, lat = struct.unpack('ff', f.read(8))
-        print(trn_file, "Lon:", lon, "Lat:", lat)
+        width, height = struct.unpack('ii', f.read(8))  #  8
+        struct.unpack('fff', f.read(12))  # 12, 3 * 90 Grad floats
+        lon, lat = struct.unpack('ff', f.read(8))  # 8
+        print("Lon:", lon, "Lat:", lat)
+        print("Width:", width / 256, "Height:", height / 256)
+
+        struct.unpack('HHHH', f.read(4*2))  # 8  (33, 78)
+
+        assert f.tell() == 36
+
+        # 256 x 256 shorts per tile
+        # print(struct.unpack('H', f.read(2)))
         return lon, lat
 
 def read_obj(obj_file, lon, lat):
@@ -85,7 +95,7 @@ if __name__ == "__main__":
             with open(args.json, "w") as f:
                 f.write(json.dumps(objects, sort_keys=True, indent=2))
     elif args.command == "import":
-       with open(args.output, "r") as f:
+       with open(args.json, "r") as f:
            objects = json.loads(f.read())
            print("Read", len(objects), "objects from", args.json)
            write_obj(obj_out_file, lon, lat, objects)
