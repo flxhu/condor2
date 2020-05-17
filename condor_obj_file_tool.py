@@ -12,8 +12,8 @@ def read_trn(trn_file):
         struct.unpack('fff', f.read(12))  # 12, 3 * 90 Grad floats
         easting, northing = struct.unpack('ff', f.read(8))
 
-        utm_zone, null = struct.unpack('HH', f.read(4))  # 4  33
-        struct.unpack('HH', f.read(4))  # 78
+        utm_zone, null = struct.unpack('HH', f.read(4))  # 33
+        utm_zone_ns, null = struct.unpack('HH', f.read(4))  # 78 = 'N'
 
         easting_lu = easting - width / 256 * 23090
         northing_lu = northing + height / 256 * 23090
