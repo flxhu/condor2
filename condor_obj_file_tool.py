@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 import os.path
 import struct
 import json
+import sys
 
 def read_trn(trn_file):
     print("Parsing", trn_file)
@@ -29,7 +31,20 @@ def read_trn(trn_file):
 
         return easting, northing, utm_zone, easting_lu, northing_lu
 
-def read_obj(obj_file, easting, northing):
+def print_stats(objects):
+    print("Number of objects: ", len(objects))
+    counts = {}
+    for obj in objects:
+        name = obj['name']
+        if not name in counts:
+            counts[name] = 1
+        else:
+            counts[name] = counts[name] + 1
+    for name, count in counts.items():
+        print(name, count)
+
+
+def read_obj(obj_file, easting, northing, include, exclude):
     result = []
     with open(obj_file, "rb") as f:
         while True:
@@ -40,16 +55,35 @@ def read_obj(obj_file, easting, northing):
             lnam = ord(struct.unpack('c', f.read(1))[0])
 
             buff = f.read(131)
-            name = buff[0:lnam]
-            line = {"x" : easting - posx, "y" : northing + posy, "z" : posz, 
+            name = buff[0:lnam].decode("ascii")
+            if exclude:
+                found = False
+                for part in exclude:
+                    if part[0].lower() in name.lower():
+                        found = True
+                        print("Excluding", name)
+                        break 
+                if found:
+                    continue
+            if include:
+                found = False
+                for part in include:
+                    if part[0].lower() in name.lower():
+                        print("Including", name)
+                        found = True
+                        break 
+                if not found:
+                    continue
+
+            line = {"x" : easting - posx, 
+                    "y" : northing + posy, "z" : posz, 
                     "scale" : dim, "orientation": ori, 
-                    "name" : name.decode("ascii")}
-            print(line, posx, posy)
+                    "name" : name}
             result.append(line)
     return result
 
 def write_obj(obj_file, easting, northing, objects):
-    print("Writing", obj_file)
+    print("Writing", obj_file, "with", len(objects), "objects")
     with open(obj_file, "wb") as f:
         for o in objects:
             outdata = struct.pack(
@@ -81,20 +115,29 @@ if __name__ == "__main__":
     parser.add_argument(
         "--name", 
         help="Landscape name", 
-        action="store")
+        action="store",
+        required=True)
     parser.add_argument(
-        "-j", "--json", 
-        help="JSON object data with absolute coordinates", 
-        action="store")
+        "--include", 
+        help="include objects that match string", 
+        action="append", nargs=1)
+    parser.add_argument(
+        "--exclude", 
+        help="exclude objects that match string", 
+        action="append", nargs=1)
     parser.add_argument(
         "--noclip",
         help="Do not filter out objects outside of landscape bounds when importing", 
         action="store_true")
+    parser.add_argument(
+        '--json-file',
+        action="append", nargs='*')
     args = parser.parse_args()
 
     if not os.path.exists(args.condor_dir):
         print("Condor directory not found at", args.condor_dir,
               ", please specify with --condor-dir")
+        sys.exit(1)
 
     landscape_dir = os.path.join(
         args.condor_dir, "Landscapes/", args.name + "/")
@@ -104,22 +147,45 @@ if __name__ == "__main__":
 
     print("Landscape directory", landscape_dir,
           ". Make sure it is writable by your user, otherwise data may end up in the VirtualStore.")
+
+    if args.include:
+        print("Including objects with name containing", args.include)
+    if args.exclude:
+        print("Excluding objects with name containing", args.exclude)
         
+    print(args.json_file)
+
     easting, northing, utm_zone, easting_lu, northing_lu = read_trn(trn_file)
     if args.command == "export":
-        objects = read_obj(obj_file, easting, northing)
+        objects = read_obj(obj_file, easting, northing, args.include, args.exclude)
         print("Read", len(objects), "objects")
-        if args.json:
-            print("Writing to", args.json)
-            with open(args.json, "w") as f:
+        object_count = len(objects)
+        if not args.noclip:
+            objects = clip(objects, easting, northing, easting_lu, northing_lu)
+            print("Clipping dropped", object_count - len(objects), "objects")
+        if args.json_file and args.json_file[0]:
+            print("Writing to", args.json_file[0])
+            with open(args.json_file[0], "w") as f:
                 f.write(json.dumps(objects, sort_keys=True, indent=2))
 
     elif args.command == "import":
-       with open(args.json, "r") as f:
-           objects = json.loads(f.read())
-           print("Read", len(objects), "objects from", args.json)
-           object_count = len(objects)
-           if not args.noclip:
-               objects = clip(objects, easting, northing, easting_lu, northing_lu)
-               print("Clipping dropped", object_count - len(objects), "objects")
-           write_obj(obj_out_file, easting, northing, objects)
+        all_objects = []
+        for ifile in args.json_file:
+            inputfile = ifile[0]
+            with open(inputfile, "r") as f:
+                objects = json.loads(f.read())
+                print("Read", len(objects), "objects from", inputfile)
+                object_count = len(objects)
+                if not args.noclip:
+                    objects = clip(objects, easting, northing, easting_lu, northing_lu)
+                    print("Clipping dropped", object_count - len(objects), "objects")
+            all_objects = all_objects + objects
+        write_obj(obj_out_file, easting, northing, all_objects)
+
+    elif args.command == "view":
+        objects = read_obj(obj_file, easting, northing, args.include, args.exclude)
+        objects_in_region = clip(objects, easting, northing, easting_lu, northing_lu)
+        print("== All ==")
+        print_stats(objects)
+        print("== In Region ==")
+        print_stats(objects_in_region)
