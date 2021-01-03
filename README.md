@@ -39,7 +39,7 @@ Import forests with the Landscape Editor. Run WaterAlpha on the generated textur
 ## condor_obj_file_tool.py for Condor 2 .obj files
 condor_obj_file_tool.py converts Condor's .obj files, which contains the coordinates, dimension and orientation of objects in the landscape. 
 
-It can also help translate objects from one landscape's coordinate system to an other's. While Condor's .obj files contain relatives coordnates, the tool writes absolute coordinates to the JSON file.
+It can also help translate objects from one landscape's coordinate system to an other's. While Condor's .obj files contain relatives coordinates, the tool writes absolute coordinates to the JSON file.
 
 The JSON output can be used to diff and patch updates from concurrent edits.
 
