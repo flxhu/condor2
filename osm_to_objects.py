@@ -3,6 +3,7 @@ import argparse
 import json
 import math
 import os.path
+import re
 
 # pip install ...
 import requests
@@ -62,7 +63,21 @@ def angle(v1, v2):
     ang2 = math.atan2(d[1], d[0])
     return (ang1 - ang2) % (2.0 * math.pi)
 
-def convert(filename, object_name, chain_orientation):
+
+def get_object_name(tags):
+    if 'generator:source' in tags and tags['generator:source'] == 'wind':
+        scale = 1.0
+        if 'height:hub' in tags:
+            height = int(re.findall(r'\d+', tags['height:hub'])[0])
+            scale = height / 100.0
+            print ("scale", tags['height:hub'], scale)
+        return WIND_GENERATOR_NAME, scale
+    elif 'power' in tags and tags['power'] == 'tower':
+        return POWER_TOWER_NAME, 1.0
+    else:
+        raise Exception("Unknown object type " + str(tags))
+
+def convert(filename, chain_orientation):
     result = []
     projection = pyproj.Proj(proj='utm', zone=UTM_ZONE, ellps='WGS84')
     with open(filename, "r") as f:
@@ -71,6 +86,8 @@ def convert(filename, object_name, chain_orientation):
         for node in osm_data:
             easting, northing = projection(node['lon'], node['lat'])
 
+            object_name, scale = get_object_name(node['tags'])
+
             orientation = 0.0
             if chain_orientation:
                 nearest_node = find_nearest(osm_data, node)
@@ -78,7 +95,7 @@ def convert(filename, object_name, chain_orientation):
                 orientation = angle((easting, northing), (en, nn))
 
             line = {"x" : easting, "y" : northing, "z" : 0.0, 
-                    "scale" : 1.0, "orientation": orientation, 
+                    "scale" : scale, "orientation": orientation, 
                     "name" : object_name}
             result.append(line)
     return result
@@ -108,13 +125,10 @@ if __name__ == "__main__":
     query_overpass(WIND_GENERATOR_TERM, BOUNDING_BOX, "wind_osm.json")
     query_overpass(POWER_TOWER_TERM, BOUNDING_BOX, "power_osm.json")
 
-    wobjects = convert("wind_osm.json", WIND_GENERATOR_NAME, False)
+    wobjects = convert("wind_osm.json", False)
     with open("wind_objects.json", "w") as f:
         f.write(json.dumps(wobjects, sort_keys=True, indent=2))
 
-    pobjects = convert("power_osm.json", POWER_TOWER_NAME, True)
+    pobjects = convert("power_osm.json", True)
     with open("power_objects.json", "w") as f:
         f.write(json.dumps(pobjects, sort_keys=True, indent=2))
-
-    with open("all_objects.json", "w") as f:
-        f.write(json.dumps(wobjects + pobjects, sort_keys=True, indent=2))
