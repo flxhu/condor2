@@ -1,4 +1,4 @@
-# Condor 2 Tools
+# Condor 2 Landscape Creation Tools
 Tools for building landscapes for the Condor 2 flight simulator
 
 ## create_landscape.py

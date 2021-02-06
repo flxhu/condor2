@@ -7,6 +7,7 @@ import argparse
 OSGEO4W_ROOT = "C:\\Program Files\\QGIS 2.18\\"
 NVDXT_PATH = "D:\\Condor 2 Own Landscape\\CondorLandscapeToolkit\\nvdxt.exe"
 CONDOR_DIR = "C:\\Program Files\\Condor2\\Landscapes\\"
+TARGET_KBS = 32633
 
 #####################################
 
@@ -21,8 +22,8 @@ FOREST_TILE_SIZE_PIXELS = 2048
 TILE_SIZE_UTM = 23040.0
 
 THERMAL_MAP_TILE_SIZE = 256
-
 TERRAIN_SAMPLING = "near"  # we want it crisp
+WGS_84_KBS = "EPSG:4326"
 
 def load_config(config_file_name):
     with open(config_file_name, "r") as myfile:
@@ -58,6 +59,7 @@ def get_files_from_directory(directory, extension):
 def render_osm(config):
     area_utm = tuple(config['area_utm'])
     area_wgs84 = tuple(config['area_outer_wgs84'])
+    target_kbs = config['target_kbs']
     map_name = config['name']
     tmp_directory = os.path.join(f"{map_name}/", "tmp/")
     output_directory = os.path.join(CONDOR_DIR, f"{map_name}")
@@ -68,7 +70,7 @@ def render_osm(config):
     regions = config['osm_regions']
 
     # Process OSM to .tif
-    osm_process(area_utm, area_wgs84, osm_directory, regions)
+    osm_process(area_utm, target_kbs, area_wgs84, osm_directory, regions)
 
     # Cut tiles
     cut_to_tiles("s", area_utm, f"{osm_directory}/forest-evergreen_esg4326.tif.ers",
@@ -81,7 +83,7 @@ def render_osm(config):
     shutil.copy(os.path.join(osm_directory, "ThermalMap.bmp"), working_directory)
     print("ThermalMap.bmp written to", working_directory, ". Export via File>Export Thermap Map")
 
-def osm_process(area_utm, area_wgs84, osm_directory, sources):
+def osm_process(area_utm, target_kbs, area_wgs84, osm_directory, sources):
     width_m = area_utm[2] - area_utm[0]
     width_pixels = width_m * TERRAIN_TILE_SIZE_PIXELS / TILE_SIZE_UTM
     height_m = area_utm[1] - area_utm[3]
@@ -118,13 +120,13 @@ def osm_process(area_utm, area_wgs84, osm_directory, sources):
           f' -te {area_wgs84[0]} {area_wgs84[1]} {area_wgs84[2]} {area_wgs84[3]} ' + 
           f' -ts {factor * width_pixels} {factor * height_pixels} {osm_directory}/all-{feature}.osm.bpf {osm_directory}/{feature}.tif')
       
-      gdal_reproject(f"{osm_directory}/{feature}_esg4326.tif", f"{osm_directory}/{feature}.tif", "EPSG:4326", "")
+      gdal_reproject(f"{osm_directory}/{feature}_esg4326.tif", f"{osm_directory}/{feature}.tif", WGS_84_KBS, target_kbs, "")
 
       if inverted:
         run(f"{osm_directory}/{feature}_inverted.tif",
             "gdal_translate",
             f'  -ot Byte -b 1 -scale 0 {burn} 255 0 -of gtiff {osm_directory}/{feature}.tif {osm_directory}/{feature}_inverted.tif')
-        gdal_reproject(f"{osm_directory}/{feature}_inverted_esg4326.tif", f"{osm_directory}/{feature}_inverted.tif", "EPSG:4326", "")
+        gdal_reproject(f"{osm_directory}/{feature}_inverted_esg4326.tif", f"{osm_directory}/{feature}_inverted.tif", WGS_84_KBS, target_kbs, "")
 
     print("Rendering thermal map")
     run(os.path.join(osm_directory, "thermal.tif"),
@@ -183,15 +185,16 @@ def run_binary(binary, output, args, workingdir):
   else:
     print(f"  skipping as {output} already exists")
 
-def gdal_reproject(destination, source, source_kbs, resampling):
+def gdal_reproject(destination, source, source_kbs, target_kbs, resampling):
     run(destination,
         "gdalwarp",
-        f"-s_srs {source_kbs} -t_srs EPSG:32633 {resampling} -multi -of ERS {source} {destination}")
+        f"-s_srs {source_kbs} -t_srs {target_kbs} {resampling} -multi -of ERS {source} {destination}")
 
 # Create projected and clipped geotiff
 def terrain_reproject_and_clip(
       what, area_utm, geotiff_input, output_prefix, 
-      tmp_dir, terrain_source_kbs, terrain_sampling, tile_size_pixels):
+      tmp_dir, terrain_source_kbs, terrain_target_kbs,
+      terrain_sampling, tile_size_pixels):
     tmp_prefix = os.path.join(tmp_dir, what)
 
     run(f"{tmp_prefix}_raster.vrt",
@@ -200,7 +203,7 @@ def terrain_reproject_and_clip(
 
     gdal_reproject(
         f"{tmp_prefix}_raster_reproject_{terrain_sampling}.vrt",
-        f"{tmp_prefix}_raster.vrt", terrain_source_kbs,
+        f"{tmp_prefix}_raster.vrt", terrain_source_kbs, terrain_target_kbs,
         f"-r {terrain_sampling}")
 
 # Sasplanet: cache area. Stitch 4326 (WGS-84)
@@ -224,7 +227,8 @@ def render_textures(config):
     terrain_reproject_and_clip(
         "terrain", area_utm, terrain_geotiff_input,
         output_prefix, tmp_directory,
-        config['terrain_kbs'], TERRAIN_SAMPLING, TERRAIN_TILE_SIZE_PIXELS)
+        config['terrain_kbs'], config['target_kbs'],
+        TERRAIN_SAMPLING, TERRAIN_TILE_SIZE_PIXELS)
     cut_to_tiles(
         "", area_utm, os.path.join(tmp_directory, 
         f"terrain_raster_reproject_{TERRAIN_SAMPLING}.vrt.ers"),
@@ -278,11 +282,11 @@ def process_heightmap(config):
     map_name = config['name']
     tmp_directory = os.path.join(f"{map_name}/", "tmp/")
     dem_create(config['name'], config['dem_directory'], 
-    tmp_directory, config['area_utm'])
+    tmp_directory, config['area_utm'], config['target_kbs'])
 
 # https://earthexplorer.usgs.gov/
 # Load output in RAW TO TRN, 30m, flip vertical WIDTH = NCOLS, save to Brandenburg.trn target root folder
-def dem_create(output_directory, dem_directory, tmp_dir, area_utm):
+def dem_create(output_directory, dem_directory, tmp_dir, area_utm, target_kbs):
   print("Converting. bil files from https://earthexplorer.usgs.gov/ in",
         dem_directory, "to a .raw file for RawToTrn.exe")
   all_bils = get_files_from_directory(dem_directory, ".bil")
@@ -295,7 +299,7 @@ def dem_create(output_directory, dem_directory, tmp_dir, area_utm):
  
   run(f"{tmp_dir}/dem_merged_wgs84.bil",
       "gdalwarp",
-      f" -overwrite -t_srs EPSG:32633 -r cubicspline -of EHdr -tr 30 30 {tmp_dir}/dem_merged.bil {tmp_dir}/dem_merged_wgs84.bil")
+      f" -overwrite -t_srs {target_kbs} -r cubicspline -of EHdr -tr 30 30 {tmp_dir}/dem_merged.bil {tmp_dir}/dem_merged_wgs84.bil")
   
   run(f"{tmp_dir}/dem_merged_wgs84_clipped.bil",
       "gdal_translate",
@@ -313,7 +317,7 @@ def dem_create(output_directory, dem_directory, tmp_dir, area_utm):
   print("Manually edit heights, and run File>Export TRN to TR3 and File>Export Terrain Hash")
 
 # Unused
-def terrain_prepare_overlay(overlay_dir, tmp_dir):
+def terrain_prepare_overlay(overlay_dir, tmp_dir, target_kbs):
   tmp_prefix = os.path.join(tmp_dir, "overlay")
   files = get_files_from_directory(overlay_dir, ".jpg")
   run(f"{tmp_prefix}_raster.vrt",
@@ -322,7 +326,7 @@ def terrain_prepare_overlay(overlay_dir, tmp_dir):
 
   gdal_reproject(
       f"{tmp_prefix}_raster_reproject.vrt", f"{tmp_prefix}_raster.vrt",
-      "EPSG:25833", "-r cubicspline")
+      "EPSG:25833", "-r cubicspline", target_kbs)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
