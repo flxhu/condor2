@@ -46,6 +46,8 @@ def print_stats(objects):
 
 def read_obj(obj_file, easting, northing, include, exclude):
     result = []
+    excluded = set()
+    included = set()
     with open(obj_file, "rb") as f:
         while True:
             buffer = f.read(4*5)
@@ -61,7 +63,9 @@ def read_obj(obj_file, easting, northing, include, exclude):
                 for part in exclude:
                     if part[0].lower() in name.lower():
                         found = True
-                        print("Excluding", name)
+                        if not name in excluded:
+                            print("Excluding", name)
+                        excluded.add(name)
                         break 
                 if found:
                     continue
@@ -69,7 +73,9 @@ def read_obj(obj_file, easting, northing, include, exclude):
                 found = False
                 for part in include:
                     if part[0].lower() in name.lower():
-                        print("Including", name)
+                        if not name in included:
+                            print("Including", name)
+                        included.add(name)
                         found = True
                         break 
                 if not found:
@@ -118,6 +124,11 @@ if __name__ == "__main__":
         action="store",
         required=True)
     parser.add_argument(
+        "--condor-obj-file", 
+        help="Condor object file name (default: <landscape>.obj)",
+        action="store",
+        required=False)
+    parser.add_argument(
         "--include", 
         help="include objects that match string", 
         action="append", nargs=1)
@@ -142,8 +153,10 @@ if __name__ == "__main__":
     landscape_dir = os.path.join(
         args.condor_dir, "Landscapes/", args.name + "/")
     trn_file = os.path.join(landscape_dir, args.name + ".trn")
-    obj_file = os.path.join(landscape_dir, args.name + ".obj")
-    obj_out_file = os.path.join(landscape_dir, args.name + ".obj")
+    if args.condor_obj_file:
+        obj_file = os.path.join(landscape_dir, args.condor_obj_file)
+    else:
+        obj_file = os.path.join(landscape_dir, args.name + ".obj")
 
     print("Landscape directory", landscape_dir,
           ". Make sure it is writable by your user, otherwise data may end up in the VirtualStore.")
@@ -153,7 +166,6 @@ if __name__ == "__main__":
     if args.exclude:
         print("Excluding objects with name containing", args.exclude)
         
-    print(args.json_file)
 
     easting, northing, utm_zone, easting_lu, northing_lu = read_trn(trn_file)
     if args.command == "export":
@@ -165,13 +177,14 @@ if __name__ == "__main__":
             print("Clipping dropped", object_count - len(objects), "objects")
         if args.json_file and args.json_file[0]:
             print("Writing to", args.json_file[0])
-            with open(args.json_file[0], "w") as f:
+            with open(args.json_file[0][0], "w") as f:
                 f.write(json.dumps(objects, sort_keys=True, indent=2))
 
     elif args.command == "import":
         all_objects = []
-        for ifile in args.json_file:
-            inputfile = ifile[0]
+        print(args.json_file)
+        for inputfile in args.json_file[0]:
+            print(inputfile)
             with open(inputfile, "r") as f:
                 objects = json.loads(f.read())
                 print("Read", len(objects), "objects from", inputfile)
@@ -180,10 +193,17 @@ if __name__ == "__main__":
                     objects = clip(objects, easting, northing, easting_lu, northing_lu)
                     print("Clipping dropped", object_count - len(objects), "objects")
             all_objects = all_objects + objects
-        write_obj(obj_out_file, easting, northing, all_objects)
+        write_obj(obj_file, easting, northing, all_objects)
 
     elif args.command == "view":
-        objects = read_obj(obj_file, easting, northing, args.include, args.exclude)
+        if args.json_file:
+            inputfile = args.json_file[0][0]
+            print("Viewing", inputfile)
+            with open(inputfile, "r") as f:
+                 objects = json.loads(f.read())
+        else:
+            print("Viewing", obj_file)
+            objects = read_obj(obj_file, easting, northing, args.include, args.exclude)
         objects_in_region = clip(objects, easting, northing, easting_lu, northing_lu)
         print("== All ==")
         print_stats(objects)
