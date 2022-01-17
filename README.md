@@ -33,17 +33,19 @@ details):
   - download DEM data from USGS EarthExplorer
   - convert terrain data with `create_landscape.py -c config.json heightmap`
   - create the initial landscape from the data
-3. Textures
+3. Forests, Water, Thermal (OSM)
+  - download OpenStreetMap data for your coverage (.osm files), for example
+    from https://download.geofabrik.de/, add to `config.json`.
+  - generate forests and water tiles and the thermal map with
+    `create_landscape.py -c config.json osm`
+4. Textures
   - download textures and stitch them to a large GeoTIFF. In some countries 
     you can get DOPs (resolution 1m or better) from the local administration,
     or you can rip data from mapping services with sasplanet (z17, EPSG 3785). 
     Add path and kbs to `config.json`.
   - generate textures tiles with `create_landscape.py -c config.json textures`
-4. Forests, Water, Thermal
-  - download OpenStreetMap data for your coverage (.osm files), for example
-    from https://download.geofabrik.de/, add to `config.json`.
-  - generate forests and water tiles and the thermal map with
-    `create_landscape.py -c config.json osm`
+  - run WaterAlpha to combine the generated texture BMP tiles with the water
+    BMP tiles from the OSM step.
 
 Import forests with the Landscape Editor. Run WaterAlpha on the generated 
 texture and water tiles.
