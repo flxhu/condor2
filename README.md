@@ -57,6 +57,7 @@ Import forests with the Landscape Editor. Run WaterAlpha on the generated
 texture and water tiles.
 
 ## condor_obj_file_tool.py for processing Condor 2 .obj files
+
 condor_obj_file_tool.py converts Condor's .obj files, which contains the
 coordinates, dimension and orientation of objects in the landscape. 
 
@@ -75,9 +76,19 @@ Typical workflow
 Based on the work of Bre901, see http://www.condorsoaring.com/forums/viewtopic.php?f=38&t=18521&p=165412
 
 ## osm_to_objects.py for generating landscape objects from OSM data
+
 osm_to_objects.py queries OSM for power tower and wind generator data and
 creates a .json file with their positions, which can be imported into a 
 landscape's .obj with condor_obj_file_tool.py
+
+## A LÖVR-based texture viewer (needs VR googles)
+
+Download https://lovr.org/ 
+Create a directory for main.lua and create a link from your Textures/ directory
+there: mklink.exe /J Textures ..\..\Textures
+
+Then drop main.lua on its .exe.
+
 
 ## Landscape Directory Notes
 
