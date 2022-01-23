@@ -34,7 +34,7 @@ def initialize_directories(config):
     map_name = config['name']
     output_directory = os.path.join(CONDOR_DIR, f"{map_name}")
 
-    tmp_directory = os.path.join(f"{map_name}/", "tmp/")
+    tmp_directory = config.get('tmp_directory', os.path.join(f"{map_name}/", "tmp/"))
 
     textures_dds_directory = os.path.join(output_directory, "Textures/")
     trn_out_directory = os.path.join(output_directory, "HeightMaps/")
@@ -61,7 +61,7 @@ def render_osm(config):
     area_wgs84 = tuple(config['area_outer_wgs84'])
     target_kbs = config['target_kbs']
     map_name = config['name']
-    tmp_directory = os.path.join(f"{map_name}/", "tmp/")
+    tmp_directory = config.get('tmp_directory', os.path.join(f"{map_name}/", "tmp/"))
     output_directory = os.path.join(CONDOR_DIR, f"{map_name}")
     working_directory = os.path.join(output_directory, "Working/")
     editor_terrain_directory = os.path.join(output_directory, "Working/", "Terragen/", "Textures/")
@@ -188,7 +188,7 @@ def run_binary(binary, output, args, workingdir):
 def gdal_reproject(destination, source, source_kbs, target_kbs, resampling):
     run(destination,
         "gdalwarp",
-        f"-s_srs {source_kbs} -t_srs {target_kbs} {resampling} -multi -of ERS {source} {destination}")
+        (f"-s_srs {source_kbs}" if source_kbs else "") + f" -t_srs {target_kbs} {resampling} -multi -of ERS '{source}' '{destination}'")
 
 # Create projected and clipped geotiff
 def terrain_reproject_and_clip(
@@ -199,7 +199,7 @@ def terrain_reproject_and_clip(
 
     run(f"{tmp_prefix}_raster.vrt",
         "gdalbuildvrt",
-        f"{tmp_prefix}_raster.vrt {geotiff_input}")
+        f"'{tmp_prefix}_raster.vrt' '{geotiff_input}'")
 
     gdal_reproject(
         f"{tmp_prefix}_raster_reproject_{terrain_sampling}.vrt",
@@ -214,7 +214,7 @@ def render_textures(config):
     terrain_geotiff_input = config['terrain_raw']
 
     output_directory = os.path.join(CONDOR_DIR, f"{map_name}")
-    tmp_directory = os.path.join(f"{map_name}/", "tmp/")
+    tmp_directory = config.get('tmp_directory', os.path.join(f"{map_name}/", "tmp/"))
     prefix = map_name
     output_prefix = os.path.join(output_directory, prefix)
     editor_terrain_directory = os.path.join(output_directory, "Working/", "Terragen/", "Textures/")
@@ -227,13 +227,14 @@ def render_textures(config):
     terrain_reproject_and_clip(
         "terrain", area_utm, terrain_geotiff_input,
         output_prefix, tmp_directory,
-        config['terrain_kbs'], config['target_kbs'],
+        config.get('terrain_kbs', None),  # auto-detect if not given 
+        config['target_kbs'],
         TERRAIN_SAMPLING, TERRAIN_TILE_SIZE_PIXELS)
     cut_to_tiles(
-        "", area_utm, os.path.join(tmp_directory, 
-        f"terrain_raster_reproject_{TERRAIN_SAMPLING}.vrt.ers"),
-         tmp_directory, editor_terrain_directory, 
-         TERRAIN_TILE_SIZE_PIXELS)
+        "", area_utm, 
+        os.path.join(tmp_directory, f"terrain_raster_reproject_{TERRAIN_SAMPLING}.vrt.ers"),
+        tmp_directory, editor_terrain_directory, 
+        TERRAIN_TILE_SIZE_PIXELS)
 
     print("Conversion done. Now run WaterAlpha (after the osm step) and run nvdxt on the result. Copy to Terrain directory.")
 
@@ -269,8 +270,7 @@ def cut_to_tiles(
 
             run(f'{editor_terrain_directory}/{tile_prefix}{tile_name}.bmp',
                 "gdal_translate",
-                f" -epo -projwin {ulx} {uly} {lrx} {lry} -outsize {tile_size_pixels} {tile_size_pixels} -of BMP {input_file} '{editor_terrain_directory}/{tile_prefix}{tile_name}.bmp'")
-
+                f"-epo -projwin {ulx} {uly} {lrx} {lry} -outsize {tile_size_pixels} {tile_size_pixels} -of BMP '{input_file}' '{editor_terrain_directory}/{tile_prefix}{tile_name}.bmp'")
 
 def convert_tiles_to_dds(textures_directory):
     subprocess.call(
@@ -280,9 +280,10 @@ def convert_tiles_to_dds(textures_directory):
 
 def process_heightmap(config):
     map_name = config['name']
-    tmp_directory = os.path.join(f"{map_name}/", "tmp/")
-    dem_create(config['name'], config['dem_directory'], 
-    tmp_directory, config['area_utm'], config['target_kbs'])
+    tmp_directory = config.get('tmp_directory', os.path.join(f"{map_name}/", "tmp/"))
+    dem_create(
+        config['name'], config['dem_directory'], 
+        tmp_directory, config['area_utm'], config['target_kbs'])
 
 # https://earthexplorer.usgs.gov/
 # Load output in RAW TO TRN, 30m, flip vertical WIDTH = NCOLS, save to Brandenburg.trn target root folder
@@ -293,27 +294,31 @@ def dem_create(output_directory, dem_directory, tmp_dir, area_utm, target_kbs):
   if not all_bils:
       raise "No .bil files in " + dem_directory
 
-  run(f"{tmp_dir}/dem_merged.bil",
+  output = os.path.join(tmp_dir, "dem_merged.bil")
+  run(output,
       "gdal_merge.bat",
-      f"-of EHdr -o {tmp_dir}dem_merged.bil " + " ".join(all_bils))
+      f"-of EHdr -o " + output + " " + " ".join(all_bils))
  
-  run(f"{tmp_dir}/dem_merged_wgs84.bil",
+  output_wgs84 = os.path.join(tmp_dir, "dem_merged_wgs84.bil")
+  run(output_wgs84,
       "gdalwarp",
-      f" -overwrite -t_srs {target_kbs} -r cubicspline -of EHdr -tr 30 30 {tmp_dir}/dem_merged.bil {tmp_dir}/dem_merged_wgs84.bil")
+      f" -overwrite -t_srs {target_kbs} -r cubicspline -of EHdr -tr 30 30 {output} {output_wgs84}")
   
-  run(f"{tmp_dir}/dem_merged_wgs84_clipped.bil",
+  output_wgs84_clipped = os.path.join(tmp_dir, "dem_merged_wgs84_clipped.bil")
+  run(output_wgs84_clipped,
       "gdal_translate",
-      f" -projwin {area_utm[0]} {area_utm[1]} {area_utm[2]} {area_utm[3]} -of EHdr -tr 30 30 {tmp_dir}/dem_merged_wgs84.bil {tmp_dir}/dem_merged_wgs84_clipped.bil")
+      f" -projwin {area_utm[0]} {area_utm[1]} {area_utm[2]} {area_utm[3]} -of EHdr -tr 30 30 {output_wgs84} {output_wgs84_clipped}")
 
-  heightmap_raw = os.path.join(output_directory, "heightmap.raw")
-  shutil.copy(f"{tmp_dir}dem_merged_wgs84_clipped.bil", heightmap_raw)
-  heightmap_txt = os.path.join(output_directory, "heightmap.txt")
-  shutil.copy(f"{tmp_dir}dem_merged_wgs84_clipped.hdr", heightmap_txt)
+  heightmap_raw = os.path.join("heightmap.raw")
+  shutil.copy(output_wgs84_clipped, heightmap_raw)
+  heightmap_txt = os.path.join("heightmap.txt")
+  output_wgs84_clipped_hdr = output_wgs84_clipped.replace(".bil", ".hdr")
+  shutil.copy(output_wgs84_clipped_hdr, heightmap_txt)
   print("Output written to ", heightmap_raw, "and", heightmap_raw)
   condor_landscape_dir = os.path.join(CONDOR_DIR, output_directory)
   print(f"Now load the {heightmap_raw} file with RawToTrn.exe (30m, flip vertical, Width = NCOLS, Height = NROWS,  from {heightmap_txt} file).")
   print(f"Then Save the resulting .trn to {condor_landscape_dir}/mapename.trn and load your new landscape in the LandscapeEditor")
-  print("Make sure that your user has full permissions on the {condor_landscape_dir}, otherwise files end up in the VirtualStore.")
+  print(f"Make sure that your user has full permissions on the {condor_landscape_dir}, otherwise files end up in the VirtualStore.")
   print("Manually edit heights, and run File>Export TRN to TR3 and File>Export Terrain Hash")
 
 # Unused
