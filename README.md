@@ -85,9 +85,19 @@ landscape's .obj with condor_obj_file_tool.py
 
 Download https://lovr.org/ 
 Create a directory for main.lua and create a link from your Textures/ directory
-there: mklink.exe /J Textures ..\..\Textures
+there: mklink.exe /J Textures ..\..\Textures (or use)
+
+Your directory layout
+  - <Landscape Directory>/lovr/ the lovr installation
+  - <Landscape Directory>/lovr/lovr_viewer/main.lua
+  - <Landscape Directory>/lovr/lovr_viewer/Textures
 
 Then drop main.lua on its .exe.
+
+Inside the viewer:
+  - a,s,d,f to move
+  - A,S,D,F to jump to the min/max extensions in x/y
+  - VR controller to move the view
 
 
 ## Landscape Directory Notes
