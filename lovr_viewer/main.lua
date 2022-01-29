@@ -30,11 +30,11 @@ function lovr.textinput(text, code)
     OFFSET_X = OFFSET_X - 1
     changed = true
   end
-  if text == 's' and OFFSET_Y < (MAX_Y - CANVAS_Y) then
+  if text == 'w' and OFFSET_Y < (MAX_Y - CANVAS_Y) then
     OFFSET_Y = OFFSET_Y + 1
     changed = true
   end
-  if text == 'w' and OFFSET_Y > 0 then
+  if text == 's' and OFFSET_Y > 0 then
     OFFSET_Y = OFFSET_Y - 1
     changed = true
   end
@@ -47,11 +47,11 @@ function lovr.textinput(text, code)
     OFFSET_X = 0
     changed = true
   end 
-  if text == "S" then
+  if text == "W" then
     OFFSET_Y = MAX_Y - CANVAS_Y
     changed = true
   end 
-  if text == "W" then
+  if text == "S" then
     OFFSET_Y = 0
     changed = true
   end 
@@ -61,9 +61,6 @@ function lovr.textinput(text, code)
       for y = 0, CANVAS_Y do
         coord = string.format("%02d%02d", x, y)
         moved = string.format("%02d%02d", x + OFFSET_X, y + OFFSET_Y)
-        print(coord)
-        -- texture = lovr.graphics.newTexture(
-        --    string.format("t%s.dds", coord))
         texture = lovr.graphics.newTexture(
            string.format("Textures/t%s.dds", moved))
         
@@ -102,9 +99,6 @@ function lovr.load()
   for x = 0, CANVAS_X do
     for y = 0, CANVAS_Y do
       coord = string.format("%02d%02d", x, y)
-      print(coord)
-      -- texture = lovr.graphics.newTexture(
-      --    string.format("t%s.dds", coord))
       texture = lovr.graphics.newTexture(
          string.format("Textures/t%s.dds", coord))
       
@@ -118,21 +112,34 @@ function lovr.draw()
   lovr.graphics.setBackgroundColor(.5, .5, .95)
   lovr.graphics.setShader(shader)
 
-  lovr.graphics.print(string.format("%s %s %s", box.position, drag.offset, drag.active), 0, 1.7, -3, .2)
+  -- lovr.graphics.print(string.format("%s %s %s", box.position, drag.offset, drag.active), 0, 1.7, -3, .2)
 
   for i, hand in ipairs(lovr.headset.getHands()) do
     lovr.graphics.setColor(lovr.headset.isDown(hand, 'trigger') and 0xffffff or 0x050505)
     lovr.graphics.cube('fill', mat4(lovr.headset.getPose(hand)):scale(.01))
   end
 
-  lovr.graphics.translate(box.position)
+  lovr.graphics.setColor(1, 0, 0, 0.7)
+  lovr.graphics.cube('fill', 0, 0, 0, 0.1)
+  lovr.graphics.print("x", 0.2, 0, 0, .1)
+  lovr.graphics.print("y", 0, 0.2, 0, .1)
+  lovr.graphics.print("y", 0, 0, 0.2, .1)
+
   lovr.graphics.setColor(1, 1, 1)
   for x = 0, CANVAS_X do
     for y = 0, CANVAS_Y do
       coord = string.format("%02d%02d", x, y)
       absolute = string.format("%02d%02d", x + OFFSET_X, y + OFFSET_Y)
-      lovr.graphics.print(absolute, -x + 2.5, -y + 2.5, -1.9, .1)
-      lovr.graphics.plane(TEXTURE_MATERIAL[coord], -x + 2.5, -y + 2.5, -2, 1, 1)
+
+      tile_pos = lovr.math.newVec3(-x + 2, y - 2, -2) + box.position
+
+      lovr.graphics.push()
+      lovr.graphics.translate(tile_pos)
+      lovr.graphics.rotate(math.pi, 1, 0, 0)
+      lovr.graphics.plane(TEXTURE_MATERIAL[coord], 0, 0, 0, 1, 1)
+      lovr.graphics.pop()
+
+      lovr.graphics.print(absolute, tile_pos.x, tile_pos.y, tile_pos.z + 0.1, .1)
     end
   end
 end
